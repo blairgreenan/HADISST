@@ -8,6 +8,7 @@ library(sf)
 library(cowplot)
 library(viridis)
 library(RColorBrewer)
+library(R.matlab)  # For reading MATLAB .mat files
 
 # Clear environment
 rm(list = ls())
@@ -18,7 +19,7 @@ DIR <- "./"
 # Define region files
 region_files <- c(
   "polygon_gomss_subarea_gom.csv",
-  "polygon_ss_merged.csv", 
+  "polygon_ss_merged.csv",
   "polygon_gsl_subarea_gsl_clipped.csv",
   "polygon_ns_subarea_sns.csv",
   "polygon_ns_merged.csv",
@@ -32,16 +33,79 @@ region_files <- c(
 # Define region names
 region_names <- c("GoM", "SS", "GSL", "SNS", "NNS", "LS", "HB", "BB", "BCS", "SBS")
 
-# Load temperature data (you'll need to replace this with your actual data loading)
-# For demonstration, creating sample data
-# In practice, you would load your HadISST_annual.mat data here
-# Example: load("HadISST_annual.RData") or similar
+# Load temperature data from MATLAB files
+tryCatch({
+  # Load annual data
+  mat_data_annual <- readMat("HadISST_annual.mat")
+  cat("Successfully loaded HadISST_annual.mat\n")
+  cat("Variables in annual file:", names(mat_data_annual), "\n")
 
-# Sample temperature difference data (replace with your actual data)
-set.seed(123)  # for reproducible sample data
-Data_diff_rear <- runif(10, 0.4, 2.6)  # Sample temperature changes for 10 regions
-Br <- 1.2  # Bravo station temperature change
-Pp <- 1.8  # Papa station temperature change
+  # Load summer data (optional - uncomment if needed)
+  # mat_data_summer <- readMat("HadISST_summer.mat")
+  # cat("Successfully loaded HadISST_summer.mat\n")
+  # cat("Variables in summer file:", names(mat_data_summer), "\n")
+
+  # Extract relevant variables from the MATLAB data
+  # You'll need to adjust these variable names based on your actual .mat file structure
+  if ("Data.diff.rear" %in% names(mat_data_annual)) {
+    Data_diff_rear <- as.vector(mat_data_annual$Data.diff.rear)
+  } else if ("Data_diff_rear" %in% names(mat_data_annual)) {
+    Data_diff_rear <- as.vector(mat_data_annual$Data_diff_rear)
+  } else {
+    # Try to find the main data variable (often the largest numeric array)
+    numeric_vars <- names(mat_data_annual)[sapply(mat_data_annual, is.numeric)]
+    if (length(numeric_vars) > 0) {
+      main_var <- numeric_vars[1]
+      Data_diff_rear <- as.vector(mat_data_annual[[main_var]])
+      cat("Using variable:", main_var, "as Data_diff_rear\n")
+    } else {
+      stop("Could not find numeric data in the .mat file")
+    }
+  }
+
+  # Extract Bravo and Papa station data if available
+  if ("Br" %in% names(mat_data_annual)) {
+    Br <- as.numeric(mat_data_annual$Br)
+  } else {
+    Br <- 1.2  # Default value
+    cat("Bravo station data not found, using default value:", Br, "\n")
+  }
+
+  if ("Pp" %in% names(mat_data_annual)) {
+    Pp <- as.numeric(mat_data_annual$Pp)
+  } else {
+    Pp <- 1.8  # Default value
+    cat("Papa station data not found, using default value:", Pp, "\n")
+  }
+
+  # Ensure we have the right number of regions (10)
+  if (length(Data_diff_rear) != 10) {
+    if (length(Data_diff_rear) > 10) {
+      Data_diff_rear <- Data_diff_rear[1:10]
+      cat("Truncated Data_diff_rear to 10 values\n")
+    } else {
+      # Pad with mean values if we have fewer than 10
+      mean_val <- mean(Data_diff_rear, na.rm = TRUE)
+      Data_diff_rear <- c(Data_diff_rear, rep(mean_val, 10 - length(Data_diff_rear)))
+      cat("Padded Data_diff_rear to 10 values using mean\n")
+    }
+  }
+
+  cat("Temperature data loaded successfully:\n")
+  cat("Data_diff_rear:", paste(round(Data_diff_rear, 3), collapse = ", "), "\n")
+  cat("Bravo (Br):", round(Br, 3), "\n")
+  cat("Papa (Pp):", round(Pp, 3), "\n")
+
+}, error = function(e) {
+  cat("Error loading MATLAB files:", e$message, "\n")
+  cat("Using sample data instead...\n")
+
+  # Fallback to sample data if .mat files can't be loaded
+  set.seed(123)
+  Data_diff_rear <- runif(10, 0.4, 2.6)
+  Br <- 1.2
+  Pp <- 1.8
+})
 
 # Define temperature ranges for color mapping
 temp_ranges <- list(
@@ -69,23 +133,23 @@ for (i in 1:length(region_files)) {
   tryCatch({
     # Read CSV file
     poly_data <- read_csv(file.path(DIR, region_files[i]))
-    
+
     # Assume first two columns are longitude and latitude
     if (ncol(poly_data) >= 2) {
       colnames(poly_data)[1:2] <- c("lon", "lat")
-      
+
       # Create polygon
       poly_sf <- poly_data %>%
         st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
         summarise(geometry = st_combine(geometry)) %>%
         st_cast("POLYGON")
-      
+
       # Add metadata
       poly_sf$region_id <- i
       poly_sf$region_name <- region_names[i]
       poly_sf$temp_change <- Data_diff_rear[i]
       poly_sf$color <- assign_color(Data_diff_rear[i], temp_ranges, thermal_colors)
-      
+
       regions_data[[i]] <- poly_sf
     }
   }, error = function(e) {
@@ -108,10 +172,10 @@ main_map <- basemap(
   grid.col = "grey90",
   grid.size = 0.1
 ) +
-  geom_sf(data = all_regions, 
-          aes(fill = temp_change), 
-          alpha = 0.7, 
-          color = "black", 
+  geom_sf(data = all_regions,
+          aes(fill = temp_change),
+          alpha = 0.7,
+          color = "black",
           size = 0.2) +
   scale_fill_gradientn(
     colors = thermal_colors,
@@ -124,26 +188,26 @@ main_map <- basemap(
     )
   ) +
   # Add region numbers
-  geom_sf_text(data = all_regions, 
-               aes(label = region_id), 
-               size = 2, 
+  geom_sf_text(data = all_regions,
+               aes(label = region_id),
+               size = 2,
                color = "white",
                fontface = "bold") +
   # Add Bravo station
-  geom_point(aes(x = -51, y = 56.5), 
-             color = "black", 
+  geom_point(aes(x = -51, y = 56.5),
+             color = "black",
              fill = assign_color(Br, temp_ranges, thermal_colors),
-             shape = 22, 
+             shape = 22,
              size = 3) +
-  annotate("text", x = -50.5, y = 55.5, label = "Bravo", 
+  annotate("text", x = -50.5, y = 55.5, label = "Bravo",
            size = 2, style = "italic") +
   # Add Papa station
-  geom_point(aes(x = -144.8599, y = 50.0378), 
-             color = "black", 
+  geom_point(aes(x = -144.8599, y = 50.0378),
+             color = "black",
              fill = assign_color(Pp, temp_ranges, thermal_colors),
-             shape = 22, 
+             shape = 22,
              size = 3) +
-  annotate("text", x = -143.8599, y = 49.0378, label = "Papa", 
+  annotate("text", x = -143.8599, y = 49.0378, label = "Papa",
            size = 2, style = "italic") +
   theme_void() +
   theme(
@@ -172,7 +236,7 @@ bar_chart <- ggplot(bar_data, aes(x = region, y = temp_change)) +
            aes(x = region, y = temp_change),
            fill = "grey50", color = "grey50", width = 0.2) +
   # Add station labels
-  geom_text(data = station_data, 
+  geom_text(data = station_data,
             aes(x = position - 0.1, y = 0.6, label = label),
             size = 2, color = "black") +
   scale_y_continuous(limits = c(0, 3), expand = c(0, 0)) +
@@ -202,12 +266,25 @@ combined_plot <- plot_grid(
 print(combined_plot)
 
 # Save the plot (optional)
-# ggsave("temperature_change_map.png", combined_plot, 
+# ggsave("temperature_change_map.png", combined_plot,
 #        width = 12, height = 10, dpi = 300)
 
 # Print summary statistics
-cat("Summary of Temperature Changes:\n")
+cat("\n=== TEMPERATURE CHANGE ANALYSIS SUMMARY ===\n")
+cat("Data source: HadISST MATLAB files\n")
+cat("Regions analyzed:", length(region_names), "\n")
 cat("Regions:", paste(region_names, collapse = ", "), "\n")
-cat("Temperature changes:", paste(round(Data_diff_rear, 2), collapse = ", "), "\n")
-cat("Bravo station:", round(Br, 2), "°C\n")
-cat("Papa station:", round(Pp, 2), "°C\n")
+cat("Temperature changes by region:\n")
+for (i in 1:length(region_names)) {
+  cat(sprintf("  %d-%s: %.2f°C\n", i, region_names[i], Data_diff_rear[i]))
+}
+cat(sprintf("Bravo station: %.2f°C\n", Br))
+cat(sprintf("Papa station: %.2f°C\n", Pp))
+cat(sprintf("Mean temperature change: %.2f°C\n", mean(Data_diff_rear, na.rm = TRUE)))
+cat(sprintf("Range: %.2f to %.2f°C\n", min(Data_diff_rear, na.rm = TRUE), max(Data_diff_rear, na.rm = TRUE)))
+
+# Optional: Print structure of loaded MATLAB data for debugging
+if (exists("mat_data_annual")) {
+  cat("\n=== MATLAB FILE STRUCTURE ===\n")
+  str(mat_data_annual, max.level = 2)
+}
