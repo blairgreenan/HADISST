@@ -49,33 +49,34 @@ region_files <- c(
   "polygon_bcs_subarea_bcs.csv",
   "polygon_ca_subarea_sbs.csv"
 )
-region_names <- c("GoM", "SS", "GSL", "SNS", "NNS", "LS", "HB", "BB", "BCS", "SBS")
+#region_names <- c("GoM", "SS", "GSL", "SNS", "NNS", "LS", "HB", "BB", "BCS", "SBS")
+region_names <- rev(c("GoM", "SS", "GSL", "SNS", "NNS", "LS", "HB", "BB", "BCS", "SBS"))
 
 # ---- Data Loading ----
 
 # Load temperature data from MATLAB files
 load_success <- FALSE
 tryCatch({
-  mat_data_annual <- readMat(file.path(DIR, "HadISST_annual.mat"))
-  message("Successfully loaded HadISST_annual.mat")
+  mat_data_summer <- readMat(file.path(DIR, "HadISST_summer.mat"))
+  message("Successfully loaded HadISST_summer.mat")
   # Extract relevant variables from the MATLAB data
-  if ("Data.diff.rear" %in% names(mat_data_annual)) {
-    Data_diff_rear <- as.vector(mat_data_annual$Data.diff.rear)
-  } else if ("Data_diff_rear" %in% names(mat_data_annual)) {
-    Data_diff_rear <- as.vector(mat_data_annual$Data_diff_rear)
+  if ("Data.diff.rear" %in% names(mat_data_summer)) {
+    Data_diff_rear <- as.vector(mat_data_summer$Data.diff.rear)
+  } else if ("Data_diff_rear" %in% names(mat_data_summer)) {
+    Data_diff_rear <- as.vector(mat_data_summer$Data_diff_rear)
   } else {
-    numeric_vars <- names(mat_data_annual)[sapply(mat_data_annual, is.numeric)]
+    numeric_vars <- names(mat_data_summer)[sapply(mat_data_summer, is.numeric)]
     if (length(numeric_vars) > 0) {
       main_var <- numeric_vars[1]
-      Data_diff_rear <- as.vector(mat_data_annual[[main_var]])
+      Data_diff_rear <- as.vector(mat_data_summer[[main_var]])
       message("Using variable: ", main_var, " as Data_diff_rear")
     } else {
       stop("Could not find numeric data in the .mat file")
     }
   }
   # Extract Bravo and Papa station data if available
-  Br <- if ("Br" %in% names(mat_data_annual)) as.numeric(mat_data_annual$Br) else 1.2
-  Pp <- if ("Pp" %in% names(mat_data_annual)) as.numeric(mat_data_annual$Pp) else 1.8
+  Br <- if ("Br" %in% names(mat_data_summer)) as.numeric(mat_data_summer$Br) else 1.2
+  Pp <- if ("Pp" %in% names(mat_data_summer)) as.numeric(mat_data_summer$Pp) else 1.8
 
   # Ensure length 10 for regions
   if (length(Data_diff_rear) != 10) {
@@ -204,13 +205,13 @@ main_map <- basemap(
     legend.text = element_text(size = 6),
     axis.title.x = element_blank(),
     axis.title.y = element_blank()
-)
+  )
 
 # ---- Bar Chart ----
 
 # Assign colors to bars to match the map
 bar_data <- data.frame(
-  region = factor(1:10, labels = paste0(1:10, "-", region_names)),
+  region = factor(10:1, labels = paste0(10:1, "-", region_names)),
   temp_change = Data_diff_rear
 )
 bar_data$color <- assign_color(bar_data$temp_change, temp_ranges, thermal_colors)
@@ -264,9 +265,9 @@ combined_plot <- plot_grid(
 print(combined_plot)
 
 # Uncomment to save the plot
-ggsave("Figure7pt7b.png", combined_plot,
+ggsave("Figure7pt7a.png", combined_plot,
         width = 12, height = 10, dpi = 300)
-ggsave("Figure7pt7b.svg", combined_plot,width = 12,
+ggsave("Figure7pt7a.svg", combined_plot,width = 12,
        height = 10, units = "in", device = "svg", scale = 0.5)
 
 # ---- Summary ----
@@ -285,7 +286,7 @@ cat(sprintf("Mean temperature change: %.2f°C\n", mean(Data_diff_rear, na.rm = T
 cat(sprintf("Range: %.2f to %.2f°C\n", min(Data_diff_rear, na.rm = TRUE), max(Data_diff_rear, na.rm = TRUE)))
 
 # Optional: Print structure of loaded MATLAB data for debugging
-if (exists("mat_data_annual")) {
+if (exists("mat_data_summer")) {
   cat("\n=== MATLAB FILE STRUCTURE ===\n")
-  str(mat_data_annual, max.level = 2)
+  str(mat_data_summer, max.level = 2)
 }

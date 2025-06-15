@@ -201,7 +201,9 @@ main_map <- basemap(
   theme(
     legend.position = "right",
     legend.title = element_text(size = 8),
-    legend.text = element_text(size = 6)
+    legend.text = element_text(size = 6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank()
   )
 
 # ---- Bar Chart ----
