@@ -239,9 +239,9 @@ bar_chart <- ggplot(bar_data, aes(x = region, y = temp_change, fill = color)) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
-    axis.text.y = element_text(size = 6),
-    axis.title.y = element_text(size = 6),
-    panel.grid.major = element_line(color = "grey90", size = 0.2),
+    axis.text.y = element_text(size = 8),
+    axis.title.y = element_text(size = 8),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.4),
     panel.grid.minor = element_blank()
   )
 # Optional: horizontal orientation (uncomment if preferred)
@@ -262,9 +262,9 @@ combined_plot <- plot_grid(
 print(combined_plot)
 
 # Uncomment to save the plot
-ggsave("temperature_change_map_annual.png", combined_plot,
+ggsave("Figure7pt7b.png", combined_plot,
         width = 12, height = 10, dpi = 300)
-ggsave("temperature_change_map_annual.svg", combined_plot,width = 12,
+ggsave("Figure7pt7b.svg", combined_plot,width = 12,
        height = 10, units = "in", device = "svg", scale = 0.5)
 
 # ---- Summary ----
