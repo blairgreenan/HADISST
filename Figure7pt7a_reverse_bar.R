@@ -158,6 +158,12 @@ anno_sf <- st_sf(label = c("Bravo", "Papa"),
                  ),
                  crs = 4326)
 
+# Create sf objects for annotation
+anno_sf2 <- st_sf(label = "Summer SST Change",
+                 geometry = st_sfc(
+                   st_point(c(-105, 45))
+                 ),
+                 crs = 4326)
 main_map <- basemap(
   limits = c(-140, -50, 40, 80),
   crs = 3978, # EPSG:3978 Canada Lambert Conformal Conic
@@ -198,7 +204,9 @@ main_map <- basemap(
           color = "black", shape = 22, size = 3, inherit.aes = FALSE) +
   # Add station labels
   geom_sf_text(data = anno_sf, aes(label = label), size = 2, fontface = "plain") +
-#  theme_void() +
+  # Add season labels
+  geom_sf_text(data = anno_sf2, aes(label = label), size = 3, fontface = "plain") +
+  #  theme_void() +
   theme(
     legend.position = "right",
     legend.title = element_text(size = 8),
@@ -223,12 +231,16 @@ station_data <- data.frame(
   color = assign_color(c(Br, Pp), temp_ranges, thermal_colors)
 )
 
-bar_chart <- ggplot(bar_data, aes(x = region, y = temp_change, fill = color)) +
+all_bar_data <- rbind(station_data, bar_data)
+all_bar_data$region <- factor(all_bar_data$region,
+                              levels = c("Papa", paste0(10:1, "-", region_names), "Bravo"))
+
+bar_chart <- ggplot(all_bar_data, aes(x = region, y = temp_change, fill = color)) +
   geom_col(color = "black", width = 0.8) +
   # Add station bars with colors to match the palette
-  geom_col(data = station_data,
-           aes(x = region, y = temp_change, fill = color),
-           color = "black", width = 0.8, inherit.aes = FALSE) +
+  #geom_col(data = station_data,
+  #         aes(x = region, y = temp_change, fill = color),
+  #         color = "black", width = 0.8, inherit.aes = FALSE) +
   # Add station labels
   #geom_text(data = station_data,
   #          aes(x = region, y = 0.6, label = label),
