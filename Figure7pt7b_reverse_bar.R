@@ -159,9 +159,9 @@ anno_sf <- st_sf(label = c("Bravo", "Papa"),
                  crs = 4326)
 
 # Create sf objects for annotation
-anno_sf2 <- st_sf(label = "Annual SST Change",
+anno_sf2 <- st_sf(label = "Annual SST Change\n2012-2022 Relative to\nBaseline Period 1951-1980",
                  geometry = st_sfc(
-                   st_point(c(-105, 45))
+                   st_point(c(-100, 45))
                  ),
                  crs = 4326)
 main_map <- basemap(
